@@ -7,32 +7,58 @@ local LocalPlayer = Players.LocalPlayer
 -- ⚙️ CONFIG
 local AimEnabled = true
 
-local Mode = "LEGEND" -- "COMPETITIVE", "TOURNAMENT", "LEGEND"
+local Mode = "LEGEND"
 
 local MaxDistance = 800
 local FOV = 160
-local Prediction = 0.10 -- 📱 estable en móvil
+local Prediction = 0.10
 
-local AimPart = "Head" -- "Head" o "HumanoidRootPart"
-
-local Smoothness = 0.18 -- 📱 menos temblor
+local AimPart = "Head"
+local Smoothness = 0.18
 
 local CurrentTarget = nil
 local SwitchDelay = 0.12
 local LastSwitch = 0
 
--- 📱 BOTÓN INVISIBLE
+-- 👻 GUI BASE
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 
+-- 👻 BOTÓN INVISIBLE ARRIBA
 local Button = Instance.new("TextButton", ScreenGui)
 Button.Size = UDim2.new(0,25,0,25)
-Button.Position = UDim2.new(1,-30,1,-30)
-Button.BackgroundTransparency = 0.85 -- casi invisible
-Button.BackgroundColor3 = Color3.fromRGB(255,255,255)
+Button.Position = UDim2.new(1,-25,0,0)
+Button.BackgroundTransparency = 1
 Button.Text = ""
+
+-- 🔔 INDICADOR
+local Indicator = Instance.new("TextLabel", ScreenGui)
+Indicator.Size = UDim2.new(0,40,0,40)
+Indicator.Position = UDim2.new(1,-50,0,30)
+Indicator.BackgroundTransparency = 1
+Indicator.TextScaled = true
+Indicator.Text = ""
+Indicator.Visible = false
+Indicator.Font = Enum.Font.GothamBold
+
+local function ShowIndicator(state)
+    Indicator.Visible = true
+    
+    if state then
+        Indicator.Text = "✔️"
+        Indicator.TextColor3 = Color3.fromRGB(0,255,0)
+    else
+        Indicator.Text = "✖️"
+        Indicator.TextColor3 = Color3.fromRGB(255,0,0)
+    end
+
+    task.delay(2, function()
+        Indicator.Visible = false
+    end)
+end
 
 Button.MouseButton1Click:Connect(function()
     AimEnabled = not AimEnabled
+    ShowIndicator(AimEnabled)
 end)
 
 -- 🔍 VALIDAR TARGET
@@ -49,7 +75,6 @@ local function IsTargetValid(player)
     local distance = (Camera.CFrame.Position - root.Position).Magnitude
     if distance > MaxDistance then return false end
 
-    -- evitar team (safe zone básico)
     if player.Team == LocalPlayer.Team then
         return false
     end
@@ -112,7 +137,7 @@ local function UpdateTarget()
     end
 end
 
--- 😈 AIM SYSTEM (OPTIMIZADO MÓVIL)
+-- 😈 AIM SYSTEM
 RunService.RenderStepped:Connect(function()
     if not AimEnabled then return end
 
@@ -127,8 +152,7 @@ RunService.RenderStepped:Connect(function()
 
             local aimCF = CFrame.new(Camera.CFrame.Position, predicted)
 
-            -- 🔥 suave pero firme (no vibra)
             Camera.CFrame = Camera.CFrame:Lerp(aimCF, Smoothness)
         end
     end
-end)
+end) 

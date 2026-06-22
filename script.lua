@@ -1,17 +1,34 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
 
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 -- ⚙️ CONFIG
 local AimEnabled = true
-local Smoothness = 0.12
+local Smoothness = 0.08
 local FOV = 180
-local Prediction = 0.13
+local Prediction = 0.10
+local MaxDistance = 200
 
--- 🎯 UI (VENTANA RGB)
+local aiming = false
+
+-- 🎮 ACTIVAR AIM SOLO AL APUNTAR
+UIS.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aiming = true
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aiming = false
+    end
+end)
+
+-- 🎯 UI (igual que el tuyo)
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 
 local Frame = Instance.new("Frame", ScreenGui)
@@ -28,25 +45,23 @@ Text.TextColor3 = Color3.fromRGB(255,255,255)
 Text.TextScaled = true
 Text.Font = Enum.Font.GothamBold
 
--- 🌈 RGB animado
 spawn(function()
     while Frame.Parent do
         for i = 0,255,5 do
             Frame.BackgroundColor3 = Color3.fromHSV(i/255,1,1)
-            wait()
+            task.wait()
         end
     end
 end)
 
--- ⏳ desaparecer en 5s
 task.delay(5, function()
-    local tween = TweenService:Create(Frame, TweenInfo.new(1), {Transparency = 1})
+    local tween = TweenService:Create(Frame, TweenInfo.new(1), {BackgroundTransparency = 1})
     tween:Play()
     task.wait(1)
     ScreenGui:Destroy()
 end)
 
--- 🧠 TARGET
+-- 🧠 TARGET MEJORADO
 local function GetClosestPlayer()
     local closest = nil
     local shortest = FOV
@@ -59,6 +74,10 @@ local function GetClosestPlayer()
 
             if root and humanoid and humanoid.Health > 0 then
                 
+                -- 📏 DISTANCIA REAL
+                local distance = (root.Position - Camera.CFrame.Position).Magnitude
+                if distance > MaxDistance then continue end
+
                 local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
 
                 if onScreen then
@@ -76,9 +95,9 @@ local function GetClosestPlayer()
     return closest
 end
 
--- 😈 AIM SKILL (más humano)
+-- 😈 AIM SKILL MEJORADO
 RunService.RenderStepped:Connect(function()
-    if not AimEnabled then return end
+    if not AimEnabled or not aiming then return end
 
     local target = GetClosestPlayer()
 
@@ -88,17 +107,21 @@ RunService.RenderStepped:Connect(function()
         if root then
             local velocity = root.Velocity
             
-            -- 🎯 predicción + pequeño error humano
+            -- 🎯 predicción mejorada
             local predicted = root.Position + (velocity * Prediction)
+
+            -- 🧠 error humano más suave
             local randomOffset = Vector3.new(
-                math.random(-2,2)/10,
-                math.random(-2,2)/10,
-                math.random(-2,2)/10
+                math.random(-1,1)/20,
+                math.random(-1,1)/20,
+                math.random(-1,1)/20
             )
 
-            predicted = predicted + randomOffset
+            predicted += randomOffset
 
             local aimCF = CFrame.new(Camera.CFrame.Position, predicted)
+
+            -- 🎥 smooth tipo skill (no roba cámara)
             Camera.CFrame = Camera.CFrame:Lerp(aimCF, Smoothness)
         end
     end

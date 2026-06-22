@@ -7,20 +7,35 @@ local LocalPlayer = Players.LocalPlayer
 -- ⚙️ CONFIG
 local AimEnabled = true
 
-local Mode = "LEGEND" 
--- "COMPETITIVE" = cambia rápido al más cercano
--- "TOURNAMENT" = más estable (no cambia tanto)
--- "LEGEND" = sin HUD + limpio + preciso
+local Mode = "LEGEND" -- "COMPETITIVE", "TOURNAMENT", "LEGEND"
 
-local MaxDistance = 200 -- 🔥 límite en studs (~metros en Roblox)
-local FOV = 140
-local Prediction = 0.12
+local MaxDistance = 800
+local FOV = 160
+local Prediction = 0.10 -- 📱 estable en móvil
+
+local AimPart = "Head" -- "Head" o "HumanoidRootPart"
+
+local Smoothness = 0.18 -- 📱 menos temblor
 
 local CurrentTarget = nil
-local SwitchDelay = 0.15
+local SwitchDelay = 0.12
 local LastSwitch = 0
 
--- 🔍 VALIDAR SI ES ATACABLE (ANTI SAFE ZONE)
+-- 📱 BOTÓN INVISIBLE
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+
+local Button = Instance.new("TextButton", ScreenGui)
+Button.Size = UDim2.new(0,25,0,25)
+Button.Position = UDim2.new(1,-30,1,-30)
+Button.BackgroundTransparency = 0.85 -- casi invisible
+Button.BackgroundColor3 = Color3.fromRGB(255,255,255)
+Button.Text = ""
+
+Button.MouseButton1Click:Connect(function()
+    AimEnabled = not AimEnabled
+end)
+
+-- 🔍 VALIDAR TARGET
 local function IsTargetValid(player)
     if player == LocalPlayer then return false end
     if not player.Character then return false end
@@ -31,11 +46,10 @@ local function IsTargetValid(player)
     if not humanoid or humanoid.Health <= 0 then return false end
     if not root then return false end
 
-    -- distancia límite
     local distance = (Camera.CFrame.Position - root.Position).Magnitude
     if distance > MaxDistance then return false end
 
-    -- 🔥 intentar detectar zonas seguras (básico)
+    -- evitar team (safe zone básico)
     if player.Team == LocalPlayer.Team then
         return false
     end
@@ -43,7 +57,7 @@ local function IsTargetValid(player)
     return true
 end
 
--- 🎯 OBTENER MÁS CERCANO A LA MIRA
+-- 🎯 OBTENER TARGET
 local function GetClosestPlayer()
     local closest = nil
     local shortest = FOV
@@ -51,8 +65,10 @@ local function GetClosestPlayer()
     for _, player in pairs(Players:GetPlayers()) do
         if IsTargetValid(player) then
             
-            local root = player.Character:FindFirstChild("HumanoidRootPart")
-            local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+            local part = player.Character:FindFirstChild(AimPart)
+            if not part then continue end
+
+            local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
 
             if onScreen then
                 local dist = (Vector2.new(screenPos.X, screenPos.Y) - Camera.ViewportSize/2).Magnitude
@@ -68,16 +84,14 @@ local function GetClosestPlayer()
     return closest
 end
 
--- 🎯 SISTEMA DE TARGET INTELIGENTE
+-- 🎯 CAMBIO INTELIGENTE
 local function UpdateTarget()
     local now = tick()
 
     if Mode == "COMPETITIVE" then
-        -- cambia rápido siempre
         CurrentTarget = GetClosestPlayer()
 
     elseif Mode == "TOURNAMENT" then
-        -- mantiene target más tiempo
         if (now - LastSwitch) > SwitchDelay then
             local newTarget = GetClosestPlayer()
             if newTarget then
@@ -87,7 +101,6 @@ local function UpdateTarget()
         end
 
     elseif Mode == "LEGEND" then
-        -- 🔥 balance perfecto
         local newTarget = GetClosestPlayer()
 
         if newTarget ~= CurrentTarget then
@@ -99,21 +112,23 @@ local function UpdateTarget()
     end
 end
 
--- 😈 AIM LOCK REAL (SIN BUG DE CÁMARA)
+-- 😈 AIM SYSTEM (OPTIMIZADO MÓVIL)
 RunService.RenderStepped:Connect(function()
     if not AimEnabled then return end
 
     UpdateTarget()
 
     if CurrentTarget and CurrentTarget.Character then
-        local root = CurrentTarget.Character:FindFirstChild("HumanoidRootPart")
+        local part = CurrentTarget.Character:FindFirstChild(AimPart)
 
-        if root then
-            local velocity = root.Velocity
-            local predicted = root.Position + (velocity * Prediction)
+        if part then
+            local velocity = part.Velocity
+            local predicted = part.Position + (velocity * Prediction)
 
-            -- 🔥 bloqueo directo (NO LERP)
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, predicted)
+            local aimCF = CFrame.new(Camera.CFrame.Position, predicted)
+
+            -- 🔥 suave pero firme (no vibra)
+            Camera.CFrame = Camera.CFrame:Lerp(aimCF, Smoothness)
         end
     end
 end)
